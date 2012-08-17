@@ -1,0 +1,1 @@
+PG_CONNECT = "dbname=musicbrainz_db user=musicbrainz_user host=localhost port=5432"
