@@ -154,7 +154,7 @@ def debug(conn, queries, start, end):
             for row in rows:
                 print "   " + row[0]
 
-def get_gids(conn, queries, start, end):
+def get_ids_for_entity(conn, queries, start, end):
 
     arguments = []
     ids = []
@@ -172,7 +172,7 @@ def get_gids(conn, queries, start, end):
     for row in rows: ids.append(row[0])
     return ids
 
-def fetch_rss_data(start, end):
+def get_changed_ids(start, end):
     try:
         conn = psycopg2.connect(PG_CONNECT)
     except psycopg2.OperationalError as err:
@@ -182,5 +182,5 @@ def fetch_rss_data(start, end):
     data = {}
     entities = ('artist', 'label', 'recording', 'release_group', 'release', 'work')
     for entity in entities:
-        data[entity] = get_gids(conn, queries[entity], start, end)
+        data[entity] = get_ids_for_entity(conn, queries[entity], start, end)
     return data
