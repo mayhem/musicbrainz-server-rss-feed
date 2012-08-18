@@ -172,14 +172,15 @@ def get_gids(conn, queries, start, end):
     for row in rows: ids.append(row[0])
     return ids
 
-try:
-    conn = psycopg2.connect(PG_CONNECT)
-except psycopg2.OperationalError as err:
-    print "Cannot connect to database: %s" % err
-    sys.exit(-1)
+def fetch_rss_data(start, end):
+    try:
+        conn = psycopg2.connect(PG_CONNECT)
+    except psycopg2.OperationalError as err:
+        print "Cannot connect to database: %s" % err
+        sys.exit(-1)
 
-entities = ('artist', 'label', 'recording', 'release_group', 'release', 'work')
-for entity in entities:
-    ids = get_gids(conn, queries[entity], sys.argv[1], sys.argv[2])
-    print "%s" % entity
-    for id in ids: print "   " + id
+    data = {}
+    entities = ('artist', 'label', 'recording', 'release_group', 'release', 'work')
+    for entity in entities:
+        data[entity] = get_gids(conn, queries[entity], start, end)
+    return data
