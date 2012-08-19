@@ -79,7 +79,7 @@ def save_data(sequence, date, data):
     f.close()
 
     try:
-        subprocess.check_call(["bzip2", filename])
+        subprocess.check_call(["gzip", filename])
     except subprocess.CalledProcessError, e:
         sys.stderr.write("Error: cannot compress output file: %s\n" % str(e))
         f.close();
