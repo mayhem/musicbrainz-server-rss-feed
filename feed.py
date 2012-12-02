@@ -4,32 +4,36 @@ import sys
 import os
 import psycopg2
 import json
-import subprocess
-from config import PG_CONNECT, DATA_FEED_DIR
+import urllib2
+import yaml
+import tempfile
+import tarfile
+import shutil
+from config import PG_CONNECT, PACKAGE, VERSION
 from changed_ids import get_changed_ids
 
-LAST_UPDATED_FILE = os.path.join(DATA_FEED_DIR, "last_updated")
-OUTPUT_DIR = os.path.join(DATA_FEED_DIR, "data")
-
-def get_last_date():
-    """Get the last date this program ran from the last_upated file. Could return blank string if no file or bad data is found."""
+def read_state_data(filename):
+    """Read the last replication sequence and date from a YAML file and return as a tuple"""
 
     try:
-        f = open(LAST_UPDATED_FILE, "r")
+        f = open(filename, "r")
     except IOError, e:
-        sys.stderr.write("Warning: cannot open file %s: %s\n" % (LAST_UPDATED_FILE, e))
-        return ""
+        sys.stderr.write("Warning: cannot open file %s: %s\n" % (filename, e))
+        return (None, None)
 
     try:
-        line = f.readline()
+        ytext = f.read()
     except IOError, e:
-        line = ""
+        ytext = ""
 
     f.close();
-    return line.strip()
 
-def save_last_date(line):
-    """Write the last date this program ran the LAST_UPDATED_FILE. Returns t/f."""
+    data = yaml.load(ytext)
+    return (int(data['replication_sequence']), data['timestamp'])
+            
+
+def save_state_data(filename, sequence, timestamp):
+    """Write last replication sequence and data to a YAML file. return True/False"""
 
     try:
         os.makedirs(DATA_FEED_DIR)
@@ -39,20 +43,59 @@ def save_last_date(line):
             sys.exit(-1)
 
     try:
-        f = open(LAST_UPDATED_FILE, "w")
+        f = open(filename, "w")
     except IOError, e:
-        sys.stderr.write("Warning: cannot open last date file %s: %s. creating new file.\n" % (LAST_UPDATED_FILE, e))
+        sys.stderr.write("Warning: cannot open last date file %s: %s. creating new file.\n" % (filename, e))
         sys.exit(-1)
 
+    data = { 'replication_sequence' : sequence, 'timestamp' : timestamp }
     try:
-        f.write(str(line) + "\n")
+        f.write(yaml.dump(data) + "\n")
         f.close()
         return True
     except IOError, e:
         f.close();
         return False
 
-def save_data(sequence, date, data):
+def get_timestamp_from_replication_packet(sequence):
+
+    packet = "ftp://ftp.musicbrainz.org/pub/musicbrainz/data/replication/replication-%d.tar.bz2" % sequence
+    opener = urllib2.build_opener()
+    opener.addheaders = [('User-agent', '%s/%s' % (PACKAGE, VERSION))]
+
+    print "downloading: %s" % packet
+    try:
+        response = opener.open(packet)
+    except urllib2.HTTPError, err:
+        if err.code == 404:
+            print "Replication packet not available."
+            return None
+        print err.code
+        return None
+    except urllib2.URLError, err:
+        if err.reason.find("550"):
+            print "Replication packet not available."
+            return None
+        print err.reason
+        return None
+
+    tmp = tempfile.TemporaryFile()
+    shutil.copyfileobj(response, tmp)
+    tmp.seek(0)
+
+    try:
+        tar_file = tarfile.open(mode="r:bz2", fileobj=tmp)
+    except tarfile.ReadError:
+        print "Cannot read tar file. Is the packet corrupt?"
+        return None
+
+    for f in tar_file:
+        if f.name == 'TIMESTAMP':
+            timestamp = tar_file.extractfile(f).read()
+
+    return timestamp.strip()
+
+def save_data(sequence, timestamp, data):
     '''Save the data file. If its not written for whatever reason, don't return. die.'''
     try:
         os.makedirs(OUTPUT_DIR)
@@ -114,5 +157,3 @@ def generate_data_feed():
         print "No last date available. Saving current date and doing fuck-all."
 
     save_last_date(current_date)
-
-generate_data_feed()

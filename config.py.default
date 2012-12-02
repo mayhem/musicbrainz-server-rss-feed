@@ -1,2 +1,5 @@
+VERSION = "0.2"
+PACKAGE = "musicbrainz-server-rss-feed"
+
 PG_CONNECT = "dbname=musicbrainz_db user=musicbrainz_user host=localhost port=5432"
 DATA_FEED_DIR = "changed-data-feed"
